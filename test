@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Okta API information
+OKTA_ORG_URL="https://your-okta-domain.okta.com"
+OKTA_API_TOKEN="your-okta-api-token"
+
+# Function to make API requests
+make_request() {
+    local endpoint="$1"
+    curl --silent --header "Authorization: SSWS $OKTA_API_TOKEN" "$OKTA_ORG_URL$endpoint"
+}
+
+# Retrieve the number of Okta users
+get_user_count() {
+    make_request "/api/v1/users?limit=1" | grep -o '"id"' | wc -l
+}
+
+# Retrieve the list of applications
+get_app_list() {
+    make_request "/api/v1/apps?limit=100" | grep -o '"label":"[^"]*' | sed 's/"label":"//'
+}
+
+# Retrieve the number of users per application
+get_users_per_app() {
+    local app_id="$1"
+    make_request "/api/v1/apps/$app_id/users?limit=1" | grep -o '"id"' | wc -l
+}
+
+# Main script logic
+echo "Number of Okta users: $(get_user_count)"
+
+echo "List of applications:"
+app_list=$(get_app_list)
+while IFS= read -r app; do
+    echo "Application: $app"
+    app_id=$(make_request "/api/v1/apps?filter=label+eq+\"$app\"" | grep -o '"id":"[^"]*' | sed 's/"id":"//')
+    user_count=$(get_users_per_app "$app_id")
+    echo "Number of users: $user_count"
+    echo
+done <<< "$app_list"
