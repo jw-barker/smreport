@@ -1,33 +1,23 @@
-import requests
+#!/bin/bash
 
-# Replace these values with your Okta API credentials
-okta_domain = 'your-okta-domain'
-api_token = 'your-okta-api-token'
+# Set your Okta organization URL and API token
+OKTA_ORG_URL="https://your-okta-domain.okta.com"
+OKTA_API_TOKEN="your-okta-api-token"
 
-# Function to send API requests with authorization headers
-def send_request(url):
-    headers = {
-        'Authorization': 'SSWS ' + api_token,
-        'Accept': 'application/json',
-    }
-    response = requests.get(url, headers=headers)
-    return response.json()
+# Make API request to retrieve user data
+response=$(curl -s -X GET \
+  -H "Authorization: SSWS $OKTA_API_TOKEN" \
+  -H "Accept: application/json" \
+  "$OKTA_ORG_URL/api/v1/users")
 
-# Retrieve number of Okta users
-users_url = f'https://{okta_domain}/api/v1/users'
-users_response = send_request(users_url)
-num_users = len(users_response)
-print(f'Number of Okta users: {num_users}')
+# Check if the request was successful
+if [[ "$response" == *"errorCode"* ]]; then
+  # Error occurred, display the error message
+  error_message=$(echo "$response" | grep -o '"errorSummary":"[^"]*' | cut -d':' -f2- | tr -d '"')
+  echo "Error: $error_message"
+  exit 1
+fi
 
-# Retrieve list of applications and number of users using each app
-apps_url = f'https://{okta_domain}/api/v1/apps'
-apps_response = send_request(apps_url)
-app_count = len(apps_response)
-print(f'Number of applications: {app_count}')
-print('Applications and number of users:')
-for app in apps_response:
-    app_name = app['label']
-    app_users_url = app['_links']['users']['href']
-    app_users_response = send_request(app_users_url)
-    app_users_count = len(app_users_response)
-    print(f'{app_name}: {app_users_count} users')
+# Count the number of users
+user_count=$(echo "$response" | grep -c '"id"')
+echo "Number of users in Okta: $user_count"
