@@ -1,40 +1,33 @@
-#!/bin/bash
+import requests
 
-# Okta API information
-OKTA_ORG_URL="https://your-okta-domain.okta.com"
-OKTA_API_TOKEN="your-okta-api-token"
+# Replace these values with your Okta API credentials
+okta_domain = 'your-okta-domain'
+api_token = 'your-okta-api-token'
 
-# Function to make API requests
-make_request() {
-    local endpoint="$1"
-    curl --silent --header "Authorization: SSWS $OKTA_API_TOKEN" "$OKTA_ORG_URL$endpoint"
-}
+# Function to send API requests with authorization headers
+def send_request(url):
+    headers = {
+        'Authorization': 'SSWS ' + api_token,
+        'Accept': 'application/json',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
 
-# Retrieve the number of Okta users
-get_user_count() {
-    make_request "/api/v1/users?limit=1" | grep -o '"id"' | wc -l
-}
+# Retrieve number of Okta users
+users_url = f'https://{okta_domain}/api/v1/users'
+users_response = send_request(users_url)
+num_users = len(users_response)
+print(f'Number of Okta users: {num_users}')
 
-# Retrieve the list of applications
-get_app_list() {
-    make_request "/api/v1/apps?limit=100" | grep -o '"label":"[^"]*' | sed 's/"label":"//'
-}
-
-# Retrieve the number of users per application
-get_users_per_app() {
-    local app_id="$1"
-    make_request "/api/v1/apps/$app_id/users?limit=1" | grep -o '"id"' | wc -l
-}
-
-# Main script logic
-echo "Number of Okta users: $(get_user_count)"
-
-echo "List of applications:"
-app_list=$(get_app_list)
-while IFS= read -r app; do
-    echo "Application: $app"
-    app_id=$(make_request "/api/v1/apps?filter=label+eq+\"$app\"" | grep -o '"id":"[^"]*' | sed 's/"id":"//')
-    user_count=$(get_users_per_app "$app_id")
-    echo "Number of users: $user_count"
-    echo
-done <<< "$app_list"
+# Retrieve list of applications and number of users using each app
+apps_url = f'https://{okta_domain}/api/v1/apps'
+apps_response = send_request(apps_url)
+app_count = len(apps_response)
+print(f'Number of applications: {app_count}')
+print('Applications and number of users:')
+for app in apps_response:
+    app_name = app['label']
+    app_users_url = app['_links']['users']['href']
+    app_users_response = send_request(app_users_url)
+    app_users_count = len(app_users_response)
+    print(f'{app_name}: {app_users_count} users')
