@@ -1,23 +1,27 @@
-#!/bin/bash
-
 # Set your Okta organization URL and API token
-OKTA_ORG_URL="https://your-okta-domain.okta.com"
-OKTA_API_TOKEN="your-okta-api-token"
+$oktaOrgUrl = "https://your-okta-domain.okta.com"
+$oktaApiToken = "your-okta-api-token"
 
-# Make API request to retrieve user data
-response=$(curl -s -X GET \
-  -H "Authorization: SSWS $OKTA_API_TOKEN" \
-  -H "Accept: application/json" \
-  "$OKTA_ORG_URL/api/v1/users")
+# Set the Okta API endpoint
+$apiEndpoint = "$oktaOrgUrl/api/v1/users"
+
+# Create headers for the API request
+$headers = @{
+    "Authorization" = "SSWS $oktaApiToken"
+    "Accept" = "application/json"
+}
+
+# Make the API request to retrieve user data
+$response = Invoke-RestMethod -Uri $apiEndpoint -Headers $headers
 
 # Check if the request was successful
-if [[ "$response" == *"errorCode"* ]]; then
-  # Error occurred, display the error message
-  error_message=$(echo "$response" | grep -o '"errorSummary":"[^"]*' | cut -d':' -f2- | tr -d '"')
-  echo "Error: $error_message"
-  exit 1
-fi
-
-# Count the number of users
-user_count=$(echo "$response" | grep -c '"id"')
-echo "Number of users in Okta: $user_count"
+if ($response -is [System.Array]) {
+    # Count the number of users
+    $userCount = $response.Length
+    Write-Host "Number of users in Okta: $userCount"
+}
+else {
+    # Error occurred, display the error message
+    $errorSummary = $response.errorSummary
+    Write-Host "Error: $errorSummary"
+}
